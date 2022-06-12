@@ -9,12 +9,14 @@
 #include "framebuffer.h"
 #include "render_buffer.h"
 
+#include "ImGui/imgui.h"
+#include "ImGui/imgui-SFML.h"
+#include "ImGui/imgui_impl_opengl3.h"
+
 
 sf::ContextSettings settings;
 
 sf::Vector2f mouse_movement_handler(const sf::Window& window, const sf::Vector2i& screen_center);
-
-
 
 
 unsigned int sphereVAO = 0;
@@ -114,13 +116,6 @@ void renderSphere()
 
 
 
-
-
-
-
-
-
-
 int main(){
 	
 	settings.majorVersion = 3;
@@ -134,10 +129,19 @@ int main(){
 	window.setMouseCursorGrabbed(true);
 	window.setMouseCursorVisible(false);
 	
-	glewInit();
-	glEnable(GL_DEPTH_TEST);
+	GLenum error = glewInit();
+	if(error != GLEW_OK){
+		std::cerr << "Error: glewInit() error" << std::endl;
+		return -1;
+	}
 	
+	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_FRAMEBUFFER_SRGB);
+	
+	ImGui::SFML::Init(window, static_cast<sf::Vector2f>(window.getSize()));
+	ImGui_ImplOpenGL3_Init("#version 330");
+	
+	
 	/*
 	glm::vec3 point_light_positions[]{
 		//glm::vec3( 0.7f,  0.2f,  2.0f),
@@ -346,28 +350,31 @@ int main(){
     lighting.set_int("ao_map", 4);
 
 
-	/*glm::vec3 light_positions[] = {
-        glm::vec3(-10.0f,  10.0f, 10.0f),
-        glm::vec3( 10.0f,  10.0f, 10.0f),
-        glm::vec3(-10.0f, -10.0f, 10.0f),
-        glm::vec3( 10.0f, -10.0f, 10.0f),
-    };
+/*
     glm::vec3 light_colors[] = {
         glm::vec3(300.0f, 300.0f, 300.0f),
         glm::vec3(300.0f, 300.0f, 300.0f),
         glm::vec3(300.0f, 300.0f, 300.0f),
         glm::vec3(300.0f, 300.0f, 300.0f)
-    };*/
+    };
 	glm::vec3 light_positions[] = {
         glm::vec3(-10.0f,  10.0f, 10.0f),
         glm::vec3( 10.0f,  10.0f, 10.0f),
         glm::vec3(-10.0f, -10.0f, 10.0f),
         glm::vec3( 10.0f, -10.0f, 10.0f),
     };
-    glm::vec3 light_colors[] = {
+*/
+	
+	std::array<glm::vec3, 4> light_positions {
+        glm::vec3(-10.0f,  10.0f, 10.0f),
+        glm::vec3( 10.0f,  10.0f, 10.0f),
+        glm::vec3(-10.0f, -10.0f, 10.0f),
+        glm::vec3( 10.0f, -10.0f, 10.0f),
+    };
+    std::array<glm::vec3, 4> light_colors {
         glm::vec3(150.0f, 150.0f, 150.0f),
         glm::vec3(150.0f, 150.0f, 150.0f),
-        glm::vec3(150.0f, 150.0f, 150.0f),
+        glm::vec3(150.0f, 0.0f, 0.0f),
         glm::vec3(150.0f, 150.0f, 150.0f)
     };
     
@@ -392,9 +399,18 @@ int main(){
 	////////
 	
 	sf::Clock clock;
+	sf::Clock gui_delta_clock;
 	glViewport(0, 0, scr_w, scr_h);
 	bool running = true;
 	while(running){
+		//constant speed on all hardware
+		sf::Time elapsed_frame = clock.getElapsedTime();
+		float current_frame = elapsed_frame.asSeconds();
+		delta_time = current_frame - last_frame;
+		last_frame = current_frame;
+		camera.set_speed(delta_game_speed * delta_time);
+		//
+		
 		sf::Event event;
 		while(window.pollEvent(event)){
 			if (event.type == sf::Event::KeyPressed)
@@ -409,7 +425,6 @@ int main(){
 			if(event.type == sf::Event::MouseWheelScrolled){
 				if(event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel){
 					camera.add_fov(event.mouseWheelScroll.delta);
-					
 					camera.calculate_perspective(projection);
 					
 					lighting.use();
@@ -418,16 +433,7 @@ int main(){
 			}
 			
 		}
-		
-		
-		//constant speed on all hardware
-		sf::Time elapsed_frame = clock.getElapsedTime();
-		float current_frame = elapsed_frame.asSeconds();
-		delta_time = current_frame - last_frame;
-		last_frame = current_frame;
-		camera.set_speed(delta_game_speed * delta_time);
-
-		//
+		//movement
 		if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
 			camera.move_forward();
 		}
@@ -440,20 +446,33 @@ int main(){
 		if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
 			camera.move_left();
 		}
+		
+		sf::Vector2f offset;
+		//look around wiht keyboard
+		if(sf::Keyboard::isKeyPressed(sf::Keyboard::Up)){
+			offset.y = 1;
+		}
+		if(sf::Keyboard::isKeyPressed(sf::Keyboard::Down)){
+			offset.y = -1;
+		}
+		if(sf::Keyboard::isKeyPressed(sf::Keyboard::Right)){
+			offset.x = 1;
+		}
+		if(sf::Keyboard::isKeyPressed(sf::Keyboard::Left)){
+			offset.x = -1;
+		}
 		//mouse
-		sf::Vector2f offset = mouse_movement_handler(window, screen_center);
+		//offset = mouse_movement_handler(window, screen_center);
 		//camera
 		camera.add_yaw(offset.x);
 		camera.add_pitch(offset.y);
 		camera.update_face_direction();
 		camera.calculate_view(view);
 		
-		
 		lighting.use();
 		lighting.set_mat4("view", view);
 
-		
-		//glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
@@ -472,16 +491,12 @@ int main(){
 		lighting.use();
 		lighting.set_vec3("camera_position", camera.get_position());
 		model = glm::mat4(1.0f);
-		 for (int row = 0; row < nrRows; ++row) 
+		for (int row = 0; row < nrRows; ++row) 
         {
             //lighting.set_float("metallic", (float)row / (float)nrRows);
             for (int col = 0; col < nrColumns; ++col) 
             {
-				// we clamp the roughness to 0.05 - 1.0 as perfectly smooth surfaces (roughness of 0.0) tend to look a bit off
-                // on direct lighting.
-                //lighting.set_float("roughness", glm::clamp((float)col / (float)nrColumns, 0.05f, 1.0f));
-                
-                 model = glm::mat4(1.0f);
+                model = glm::mat4(1.0f);
                 model = glm::translate(model, glm::vec3(
                     (col - (nrColumns / 2)) * spacing, 
                     (row - (nrRows / 2)) * spacing, 
@@ -491,7 +506,7 @@ int main(){
                 renderSphere();
             }
         }
-        for (unsigned int i = 0; i < sizeof(light_positions) / sizeof(light_positions[0]); ++i)
+        for (unsigned int i = 0; i < light_positions.size(); ++i)
         {
 			sf::Time elapsed = clock.getElapsedTime();
             glm::vec3 newPos = light_positions[i] + glm::vec3(sin(elapsed.asSeconds() * 5.0) * 5.0, 0.0, 0.0);
@@ -556,9 +571,27 @@ int main(){
 			color_buffer.unbind();
 			quad_vao.unbind();
 		*/
+		
+		
+		
+		
+		
+		
+		ImGui::SFML::Update(sf::Mouse::getPosition(window),static_cast<sf::Vector2f>(window.getSize()),gui_delta_clock.restart());
+		ImGui_ImplOpenGL3_NewFrame();
+        ImGui::NewFrame();
+        
+        ImGui::Begin("Hello");
+        ImGui::Text("This is some useful text.");
+        ImGui::End();
+		
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		
 		window.display();
 	}
 	
+	  ImGui::SFML::Shutdown();
 }
 
 sf::Vector2f mouse_movement_handler(const sf::Window& window, const sf::Vector2i& screen_center){
