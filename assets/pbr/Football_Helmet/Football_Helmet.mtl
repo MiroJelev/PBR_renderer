@@ -1,0 +1,12 @@
+newmtl Football_HelmetSG
+illum 2
+Kd 0.00 0.00 0.00
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+Ni 1.00
+# d 0
+# map_Kd albedo.jpg
+# map_Ns roughness.jpg
+# map_refl metallic.jpg
+# map_Bump normal.jpg
+# map_Ka ao.jpg
