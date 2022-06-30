@@ -294,6 +294,7 @@ int main(){
 	long long int frame_count = 0;
 	
 	bool rotation = true;
+	bool calc_perspective = true;
 	glm::mat4 model_saved = glm::mat4(1.0f);
 	
 	sf::Clock clock;
@@ -332,7 +333,11 @@ int main(){
 			if(event.type == sf::Event::MouseWheelScrolled){
 				if(event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel){
 					camera.add_fov(event.mouseWheelScroll.delta);
-					camera.calculate_perspective(projection);
+					if(calc_perspective){
+						camera.calculate_perspective(projection);
+					}else{
+						camera.calculate_ortho(projection);
+					}
 					
 					lighting.use();
 					lighting.set_mat4("projection", projection);
@@ -451,6 +456,9 @@ int main(){
 		
 		if(ImGui::Button("Rotation")){
 			rotation = !rotation;
+		}
+		if(ImGui::Button("Perspective/Orthogonal")){
+			calc_perspective = !calc_perspective;
 		}
 
         light_colors[selectedItem] = col;

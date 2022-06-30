@@ -64,10 +64,10 @@ void Camera::calculate_perspective(glm::mat4& projection){
 	projection = glm::perspective(glm::radians(fov), (float)scr_w / (float)scr_h, min_view_distance, max_view_distance);
 }
 void Camera::calculate_ortho(glm::mat4& projection){
-	float max_left = -3.6f;			//temporary use of variables
-	float max_right = 3.6f;			//not sure if the names encompass the 
-	float max_up = 2.0f;			//right meaning of the values
-	float max_down = -2.0f;
+	float max_left = -30.6f;			//temporary use of variables
+	float max_right = 30.6f;			//not sure if the names encompass the 
+	float max_up = 20.0f;			//right meaning of the values
+	float max_down = -20.0f;
 	projection = glm::ortho(max_left, max_right, max_up, max_down, min_view_distance, max_view_distance);
 }
 void Camera::calculate_view(glm::mat4& view){
