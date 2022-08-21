@@ -178,6 +178,7 @@ int main(){
 	std::string roughness_map_path("assets/pbr/Football_Helmet/roughness.jpg");
 	std::string ao_map_path("assets/pbr/Football_Helmet/ao.jpg");
 	
+	
 	/*
 	Model helmet{"assets/pbr/colt-1911/1911.obj"};
 	
@@ -187,8 +188,8 @@ int main(){
 	std::string metallic_map_path("assets/pbr/colt-1911/metallic_scaled.png");
 	std::string roughness_map_path("assets/pbr/colt-1911/roughness_scaled.png");
 	std::string ao_map_path("assets/pbr/colt-1911/ao_scaled.png");
-	
 	*/
+	
 	
 	/*
 	std::string albedo_map_path("assets/pbr/rusted_iron/rustediron2_basecolor.png");
@@ -201,7 +202,7 @@ int main(){
 	 */
 	 
 	Texture2D albedo_map{};
-	albedo_map.load_from_file(albedo_map_path, true);
+	albedo_map.load_from_file(albedo_map_path, true);//, true
 	albedo_map.set_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
 	albedo_map.set_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
 	albedo_map.set_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
