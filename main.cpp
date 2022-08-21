@@ -126,8 +126,8 @@ int main(){
 	settings.antialiasingLevel = 4;
 	
 	sf::Window window(sf::VideoMode(scr_w, scr_h), "OpenGL", sf::Style::Default, settings);
-	window.setMouseCursorGrabbed(true);
-	window.setMouseCursorVisible(false);
+	//window.setMouseCursorGrabbed(true);
+	//window.setMouseCursorVisible(false);
 	
 	GLenum error = glewInit();
 	if(error != GLEW_OK){
@@ -398,6 +398,9 @@ int main(){
 	sf::Mouse::setPosition(screen_center, window);
 	////////
 	
+	float fps = 0.0;
+	long long int frame_count = 0;
+	
 	sf::Clock clock;
 	sf::Clock gui_delta_clock;
 	glViewport(0, 0, scr_w, scr_h);
@@ -409,6 +412,15 @@ int main(){
 		delta_time = current_frame - last_frame;
 		last_frame = current_frame;
 		camera.set_speed(delta_game_speed * delta_time);
+		//
+		//frame count and fps
+		if(frame_count >= sizeof(unsigned long long) * sizeof(unsigned long long)){
+			frame_count = 0;
+		}
+		frame_count++;
+		if(frame_count % 10 == 0){
+			fps = 1.0f / delta_time;
+		}
 		//
 		
 		sf::Event event;
@@ -448,7 +460,7 @@ int main(){
 		}
 		
 		sf::Vector2f offset;
-		//look around wiht keyboard
+		//look around with keyboard
 		if(sf::Keyboard::isKeyPressed(sf::Keyboard::Up)){
 			offset.y = 1;
 		}
@@ -506,6 +518,33 @@ int main(){
                 renderSphere();
             }
         }
+        
+        //IM GUI
+        ImGui::SFML::Update(sf::Mouse::getPosition(window),static_cast<sf::Vector2f>(window.getSize()),gui_delta_clock.restart());
+		ImGui_ImplOpenGL3_NewFrame();
+        ImGui::NewFrame();
+        
+        ImGui::Begin("Lights");
+        ImGui::Text("Select light to be manipulated!");
+        ImGui::Text("FPS: %f", floor(fps));
+        ImGui::Text("Frame count: %i", frame_count);
+        
+        const char * items[] {"top_left", "top_right", "bottom_left", "bottom_right"};
+        static int selectedItem = 0;
+        ImGui::ListBox("lights", &selectedItem, items, 4);
+        
+        static float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        ImGui::ColorEdit3("color", color);
+        glm::vec3 col(round(color[0] * 255.0), round(color[1]* 255.0), round(color[2]* 255.0));
+
+
+        light_colors[selectedItem] = col;
+        
+        ImGui::End();
+        //
+       
+        
+        
         for (unsigned int i = 0; i < light_positions.size(); ++i)
         {
 			sf::Time elapsed = clock.getElapsedTime();
@@ -577,13 +616,7 @@ int main(){
 		
 		
 		
-		ImGui::SFML::Update(sf::Mouse::getPosition(window),static_cast<sf::Vector2f>(window.getSize()),gui_delta_clock.restart());
-		ImGui_ImplOpenGL3_NewFrame();
-        ImGui::NewFrame();
-        
-        ImGui::Begin("Hello");
-        ImGui::Text("This is some useful text.");
-        ImGui::End();
+		
 		
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
