@@ -4,7 +4,7 @@ const float max_pitch = 89.0f;
 const float min_pitch = -89.0f;
 const float max_fov = 45.0f;
 const float min_fov = 1.0f;
-const float max_view_distance = 100.0f;
+const float max_view_distance = 1000.0f;
 const float min_view_distance = 0.1f;
 
 class Camera{

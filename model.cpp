@@ -3,19 +3,35 @@
 //STB image library
 #include "stb_image.h"
 
-Model::Model(std::string path){
+Model::Model(const std::string& path, const std::vector<std::string>& textures_paths){
+	model = glm::mat4(1.0f);
 	load_model(path);
-	
+	load_textures(textures_paths);
+}
+Model::Model(const std::string& path){
+	load_model(path);
 }
 
 void Model::draw(Shader &shader){
-	for(unsigned int i = 0; i < meshes.size(); i++){
-		meshes[i].draw(shader);
+
+	for(int i = 0; i < model_textures.size(); i++){
+		glActiveTexture(GL_TEXTURE0 + i);
+		model_textures[i].bind();
+	}
+
+	shader.set_mat4("model", model);
+
+	for(Mesh x : meshes){
+		x.draw(shader);
+	}
+
+	for(int i = 0; i < model_textures.size(); i++){
+		model_textures[i].unbind();
 	}
 }
 
 
-void Model::load_model(std::string path){
+void Model::load_model(const std::string& path){
 	Assimp::Importer import;
 	const aiScene *scene = import.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
 	
@@ -86,78 +102,76 @@ Mesh Model::process_mesh(aiMesh *mesh, const aiScene *scene){
 			indices.push_back(face.mIndices[j]);
 		}
 	}
-	/*
+	
 	//process material
-	if(mesh->mMaterialIndex >= 0){
-		aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+	// if(mesh->mMaterialIndex >= 0){
+	// 	aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
 		
-	///*	std::vector<Texture> diffuse_maps = load_material_textures(material, aiTextureType_DIFFUSE, "texture_diffuse");
-	//	textures.insert(textures.end(), diffuse_maps.begin(), diffuse_maps.end());
+	// 	std::vector<Texture> albedo_maps = load_material_textures(material, aiTextureType_DIFFUSE, "texture_albedo");//aiTextureType_BASE_COLOR
+    //     textures.insert(textures.end(), albedo_maps.begin(), albedo_maps.end());
 		
-	//	std::vector<Texture> specular_maps = load_material_textures(material, aiTextureType_SPECULAR, "texture_specular");
-	//	textures.insert(textures.end(), specular_maps.begin(), specular_maps.end());
-	//*
-	//	std::vector<Texture> normal_maps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
-    //    textures.insert(textures.end(), normal_maps.begin(), normal_maps.end());
+	// 	std::vector<Texture> normal_maps = load_material_textures(material, aiTextureType_HEIGHT, "texture_normal");//aiTextureType_NORMALS
+    //     textures.insert(textures.end(), normal_maps.begin(), normal_maps.end());
 		
-		std::vector<Texture> albedo_maps = load_material_textures(material, aiTextureType_BASE_COLOR, "texture_albedo");
-        textures.insert(textures.end(), albedo_maps.begin(), albedo_maps.end());
+	// 	std::vector<Texture> metallic_maps = load_material_textures(material, aiTextureType_SPECULAR, "texture_metallic");//aiTextureType_METALNESS
+    //     textures.insert(textures.end(), metallic_maps.begin(), metallic_maps.end());
 		
-		std::vector<Texture> normal_maps = load_material_textures(material, aiTextureType_NORMALS, "texture_normal");
-        textures.insert(textures.end(), normal_maps.begin(), normal_maps.end());
+	// 	std::vector<Texture> roughness_maps = load_material_textures(material, aiTextureType_SHININESS, "texture_roughness");//aiTextureType_DIFFUSE_ROUGHNESS
+    //     textures.insert(textures.end(), roughness_maps.begin(), roughness_maps.end());
 		
-		std::vector<Texture> metallic_maps = load_material_textures(material, aiTextureType_METALNESS, "texture_metallic");
-        textures.insert(textures.end(), metallic_maps.begin(), metallic_maps.end());
-		
-		std::vector<Texture> roughness_maps = load_material_textures(material, aiTextureType_DIFFUSE_ROUGHNESS, "texture_roughness");
-        textures.insert(textures.end(), roughness_maps.begin(), roughness_maps.end());
-		
-		std::vector<Texture> ao_maps = load_material_textures(material, aiTextureType_LIGHTMAP, "texture_ao");
-        textures.insert(textures.end(), ao_maps.begin(), ao_maps.end());
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-	}
-	*/
+	// 	std::vector<Texture> ao_maps = load_material_textures(material, aiTextureType_AMBIENT, "texture_ao");//aiTextureType_LIGHTMAP
+    //     textures.insert(textures.end(), ao_maps.begin(), ao_maps.end());
+
+	// }
+	
 	return Mesh(vertices, indices, textures);
 }
 
 
-std::vector<Texture> Model::load_material_textures(aiMaterial *mat, aiTextureType type, std::string type_name){
-	std::vector<Texture> textures;
-	for(unsigned int i = 0; i < mat->GetTextureCount(type); i++){
-		aiString str;
-		mat->GetTexture(type, i, &str);
-		bool skip = false;
-		for(unsigned int j = 0; j < textures_loaded.size(); j++){
-			if(std::strcmp(textures_loaded[j].path.data(), str.C_Str()) == 0){
-				textures.push_back(textures_loaded[j]);
-				skip = true;
-				break;
-			}
-		}
-		if(!skip){ //if texture hasn't been loaded already, load it
-			Texture texture;
-			texture.id = texture_from_file(str.C_Str(), this->directory);
-			texture.type = type_name;
-			texture.path = str.C_Str();
-			textures.push_back(texture);
-			textures_loaded.push_back(texture); //add to loaded textures
-		}
+void Model::load_textures(const std::vector<std::string>& textures_paths){
+	// model_textures.insert(model_textures.end(),{Texture2D{},Texture2D{},Texture2D{},Texture2D{},Texture2D{}});
+	for(int i = 0; i < model_textures.size(); i++){
+		model_textures[i].load_from_file(textures_paths[i], true);//, true
+		model_textures[i].set_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);//GL_REPEAT
+		model_textures[i].set_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
+		model_textures[i].set_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		model_textures[i].set_parameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
-	return textures;
 }
+
+// std::vector<Texture> Model::load_material_textures(aiMaterial *mat, aiTextureType type, std::string type_name){
+// 	std::vector<Texture> textures;
+// 	std::cout << "LOAD MATERIAL TEXTURES: " <<  mat->GetTextureCount(type) << std::endl;
+// 	for(unsigned int i = 0; i < mat->GetTextureCount(type); i++){
+// 		aiString str;
+// 		mat->GetTexture(type, i, &str);
+// 		std::cout << "\t in for: " <<  str.C_Str() << " - " << type_name << std::endl;
+// 		bool skip = false;
+// 		for(unsigned int j = 0; j < textures_loaded.size(); j++){
+// 			if(std::strcmp(textures_loaded[j].path.data(), str.C_Str()) == 0){
+// 				// std::cout << "LOAD MATERIAL TEXTURES in FOR" << std::endl;
+// 				textures.push_back(textures_loaded[j]);
+// 				skip = true;
+// 				break;
+// 			}
+// 		}
+// 		if(!skip){ //if texture hasn't been loaded already, load it
+// 			// std::cout << "LOAD MATERIAL TEXTURES" << std::endl;
+// 			Texture texture;
+// 			texture.id = texture_from_file(str.C_Str(), this->directory);
+// 			texture.type = type_name;
+// 			texture.path = str.C_Str();
+// 			textures.push_back(texture);
+// 			textures_loaded.push_back(texture); //add to loaded textures
+// 		}
+// 	}
+// 	return textures;
+// }
 
 
 
 unsigned int texture_from_file(const char *path, const std::string &directory, bool gamma){
+	std::cout << "FROM FILE LOAD" << std::endl;
 	stbi_set_flip_vertically_on_load(true);
 	
 	std::string filename = std::string(path);

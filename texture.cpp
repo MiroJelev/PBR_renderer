@@ -63,8 +63,10 @@ void Texture2D::load_from_file(const std::string& name, bool flip){
 		}else if(nrChannels == 3){
 			format = GL_RGB;
 		}else if(nrChannels == 4){
-			format = GL_RGB;
-			//format2 = GL_RGBA;
+			format = GL_RGBA;
+
+			// format = GL_RGB;
+			// //format2 = GL_RGBA;	//fix it looks like squares on texture
 		}
 		bind();
 		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);

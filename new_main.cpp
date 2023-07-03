@@ -16,6 +16,7 @@
 
 #include <btBulletDynamicsCommon.h>
 
+
 sf::ContextSettings settings;
 
 sf::Vector2f mouse_movement_handler(const sf::Window& window, const sf::Vector2i& screen_center);
@@ -116,8 +117,6 @@ void renderSphere()
     glDrawElements(GL_TRIANGLE_STRIP, indexCount, GL_UNSIGNED_INT, 0);
 }
 
-
-
 void render_gui(sf::Window& window, sf::Clock& gui_delta_clock, float& fps, long long int& frame_count, bool& rotation, bool& calc_perspective, std::array<glm::vec3, 4>& light_colors){
 	//IM GUI
 	ImGui::SFML::Update(sf::Mouse::getPosition(window),static_cast<sf::Vector2f>(window.getSize()),gui_delta_clock.restart());
@@ -147,7 +146,18 @@ void render_gui(sf::Window& window, sf::Clock& gui_delta_clock, float& fps, long
 	light_colors[selectedItem] = col;
 	
 	ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	///////////////////////
+}
+
+glm::vec3 btv3_to_glmv3(const btVector3& btvect){
+	return { float(btvect.getX()), float(btvect.getY()), float(btvect.getZ()) };
+}
+
+glm::vec3 btv3_to_glmquat3(const btQuaternion& btquater){
+	return { float(btquater.getX()), float(btquater.getY()), float(btquater.getZ()+1) }; //+1 to show object but the obj is rotated!!
 }
 
 int main(){
@@ -162,7 +172,7 @@ int main(){
 	sf::Window window(sf::VideoMode(scr_w, scr_h), "OpenGL", sf::Style::Default, settings);
 	//window.setMouseCursorGrabbed(true);
 	//window.setMouseCursorVisible(false);
-	window.setFramerateLimit(30);
+	window.setFramerateLimit(60);
 	
 	GLenum error = glewInit();
 	if(error != GLEW_OK){
@@ -178,23 +188,16 @@ int main(){
 
 
 	///-----initialization_start-----
-
 	///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
 	btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
-
 	///use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
 	btCollisionDispatcher* dispatcher = new btCollisionDispatcher(collisionConfiguration);
-
 	///btDbvtBroadphase is a good general purpose broadphase. You can also try out btAxis3Sweep.
 	btBroadphaseInterface* overlappingPairCache = new btDbvtBroadphase();
-
 	///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
 	btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
-
 	btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
-
 	dynamicsWorld->setGravity(btVector3(0, -10, 0));
-
 	///-----initialization_end-----
 
 	//keep track of the shapes, we release memory at exit.
@@ -206,27 +209,24 @@ int main(){
 	Camera camera{};
 	camera.face(glm::vec3(0.0, 0.0, -1.0));//face the cubes
 	camera.add_yaw(-90.0f);
-	
 	//view matrix
 	glm::mat4 view = glm::mat4(1.0f);
 	camera.calculate_view(view);
-	
 	//projection matrix
 	glm::mat4 projection = glm::mat4(1.0f);
 	camera.calculate_perspective(projection);
-	
 	//model matrix
 	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::mat4(1.0f);
 	
+    btTransform groundTransform;
 	{
-		btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(50.), btScalar(50.), btScalar(50.)));
+		btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(20.), btScalar(1.), btScalar(20.)));//50.
 
 		collisionShapes.push_back(groundShape);
 
-		btTransform groundTransform;
+		// btTransform groundTransform;
 		groundTransform.setIdentity();
-		groundTransform.setOrigin(btVector3(0, -56, 0));
+		groundTransform.setOrigin(btVector3(0, 0, 0));//0,-56,0
 
 		btScalar mass(0.);
 
@@ -242,6 +242,11 @@ int main(){
 		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
 		btRigidBody* body = new btRigidBody(rbInfo);
 
+		body->setFriction(1.f);
+		body->setRollingFriction(.1);
+		body->setSpinningFriction(0.1);
+		body->setAnisotropicFriction(groundShape->getAnisotropicRollingFrictionDirection(), btCollisionObject::CF_ANISOTROPIC_ROLLING_FRICTION);
+
 		//add the body to the dynamics world
 		dynamicsWorld->addRigidBody(body);
 	}
@@ -250,7 +255,7 @@ int main(){
 		//create a dynamic rigidbody
 
 		//btCollisionShape* colShape = new btBoxShape(btVector3(1,1,1));
-		btCollisionShape* colShape = new btSphereShape(btScalar(1.));
+		btCollisionShape* colShape = new btSphereShape(btScalar(5.));//1
 		collisionShapes.push_back(colShape);
 
 		/// Create Dynamic Objects
@@ -266,19 +271,87 @@ int main(){
 		if (isDynamic)
 			colShape->calculateLocalInertia(mass, localInertia);
 
-		startTransform.setOrigin(btVector3(2, 10, 0));
+		startTransform.setOrigin(btVector3(0, 100, 0));//2,100,0
 
 		//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
 		btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
 		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
 		btRigidBody* body = new btRigidBody(rbInfo);
 
+		body->setFriction(1.f);
+		body->setRollingFriction(.1);
+		body->setSpinningFriction(0.1);
+		body->setAnisotropicFriction(colShape->getAnisotropicRollingFrictionDirection(), btCollisionObject::CF_ANISOTROPIC_ROLLING_FRICTION);
+
 		dynamicsWorld->addRigidBody(body);
 	}
 
-	//Load assets
-	Model helmet{"assets/pbr/Football_Helmet/Football_Helmet.obj"};
-	
+	{
+		//create a dynamic rigidbody
+
+		btCollisionShape* colShape = new btBoxShape(btVector3(1,1,1));
+		// btCollisionShape* colShape = new btSphereShape(btScalar(1.));//1
+		collisionShapes.push_back(colShape);
+
+		/// Create Dynamic Objects
+		btTransform startTransform;
+		startTransform.setIdentity();
+
+		btScalar mass(0.f);
+
+		//rigidbody is dynamic if and only if mass is non zero, otherwise static
+		bool isDynamic = (mass != 0.f);
+
+		btVector3 localInertia(0, 0, 0);
+		if (isDynamic)
+			colShape->calculateLocalInertia(mass, localInertia);
+
+		startTransform.setOrigin(btVector3(3, 5, 0));// 3, 50, 0//2,100,0
+
+		//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+		btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
+		btRigidBody* body = new btRigidBody(rbInfo);
+
+		body->setFriction(1.f);
+		body->setRollingFriction(.1);
+		body->setSpinningFriction(0.1);
+		body->setAnisotropicFriction(colShape->getAnisotropicRollingFrictionDirection(), btCollisionObject::CF_ANISOTROPIC_ROLLING_FRICTION);
+
+		dynamicsWorld->addRigidBody(body);
+	}
+
+	// {
+	// 	//create a dynamic rigidbody
+
+	// 	//btCollisionShape* colShape = new btBoxShape(btVector3(1,1,1));
+	// 	btCollisionShape* colShape = new btConeShape(2, 3);//1
+	// 	collisionShapes.push_back(colShape);
+
+	// 	/// Create Dynamic Objects
+	// 	btTransform startTransform;
+	// 	startTransform.setIdentity();
+
+	// 	btScalar mass(1.f);
+
+	// 	//rigidbody is dynamic if and only if mass is non zero, otherwise static
+	// 	bool isDynamic = (mass != 0.f);
+
+	// 	btVector3 localInertia(0, 0, 0);
+	// 	if (isDynamic)
+	// 		colShape->calculateLocalInertia(mass, localInertia);
+
+	// 	startTransform.setOrigin(btVector3(2, 25, 0));//2,100,0
+
+	// 	//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+	// 	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+	// 	btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
+	// 	btRigidBody* body = new btRigidBody(rbInfo);
+
+	// 	dynamicsWorld->addRigidBody(body);
+	// }
+
+
 
 
 	std::string albedo_map_path("assets/pbr/Football_Helmet/albedo.jpg");
@@ -286,7 +359,6 @@ int main(){
 	std::string metallic_map_path("assets/pbr/Football_Helmet/metallic.jpg");
 	std::string roughness_map_path("assets/pbr/Football_Helmet/roughness.jpg");
 	std::string ao_map_path("assets/pbr/Football_Helmet/ao.jpg");
-
 	std::vector<std::string> helmet_textures_paths{
 		albedo_map_path,
 		normal_map_path,
@@ -295,73 +367,88 @@ int main(){
 		ao_map_path
 	};
 
-	std::vector<Texture2D> helmet_textures{5};
-	for(int i = 0; i < helmet_textures.size(); i++){
-		helmet_textures[i].load_from_file(helmet_textures_paths[i], true);//, true
-		helmet_textures[i].set_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
-		helmet_textures[i].set_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
-		helmet_textures[i].set_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		helmet_textures[i].set_parameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	albedo_map_path =("assets/pbr/cube/raw_plank_wall_textures/raw_plank_wall_diff_1k.png");
+	normal_map_path =("assets/pbr/cube/raw_plank_wall_textures/raw_plank_wall_nor_gl_1k.png");
+	metallic_map_path =("assets/pbr/cube/raw_plank_wall_textures/raw_plank_wall_arm_1k.png");
+	roughness_map_path =("assets/pbr/cube/raw_plank_wall_textures/raw_plank_wall_rough_1k.png");
+	ao_map_path =("assets/pbr/cube/raw_plank_wall_textures/raw_plank_wall_ao_1k.png");
+	std::vector<std::string> floor_textures_paths{
+		albedo_map_path,
+		normal_map_path,
+		metallic_map_path,
+		roughness_map_path,
+		ao_map_path
+	};
+
+	albedo_map_path =("assets/pbr/cube/pavement/pavement_02_diff_1k.png");
+	normal_map_path =("assets/pbr/cube/pavement/pavement_02_nor_gl_1k.png");
+	metallic_map_path =("assets/pbr/cube/pavement/pavement_02_arm_1k.png");
+	roughness_map_path =("assets/pbr/cube/pavement/pavement_02_rough_1k.png");
+	ao_map_path =("assets/pbr/cube/pavement/pavement_02_ao_1k.png");
+	std::vector<std::string> sphere_textures_paths{
+		albedo_map_path,
+		normal_map_path,
+		metallic_map_path,
+		roughness_map_path,
+		ao_map_path
+	};
+	
+
+	//Load assets
+	Model helmet{"assets/pbr/Football_Helmet/Football_Helmet.obj", helmet_textures_paths};
+	Model helmet_decomp{"assets/pbr/Football_Helmet/decomp.obj"};
+    Model cube{"assets/pbr/cube/cube.obj", floor_textures_paths};
+	Model cube_test{"assets/pbr/cube/cube.obj", floor_textures_paths};
+	Model sphere{"assets/pbr/cube/sphere.obj", sphere_textures_paths};
+	// Model cone{"assets/pbr/cube/cone.obj", sphere_textures_paths};
+
+
+	//HELMET//////////////////////////////////////////////////////////////////////////
+	{
+		//create a dynamic rigidbody
+		//btConvexHullShape* colShape = new btConvexHullShape();//1
+		btCompoundShape* colShape = new btCompoundShape();
+
+		for(Mesh i : helmet_decomp.meshes){
+			btConvexHullShape* convShape = new btConvexHullShape();
+			btTransform startTransform1;
+			startTransform1.setIdentity();
+			for(int j = 0; j < i.vertices.size(); j++){
+				if(j % 50 == 0)
+					convShape->addPoint(btVector3(i.vertices[j].position.x, i.vertices[j].position.y, i.vertices[j].position.z));
+			}
+			colShape->addChildShape(startTransform1, convShape);
+		}
+		collisionShapes.push_back(colShape);
+
+		/// Create Dynamic Objects
+		btTransform startTransform;
+		startTransform.setIdentity();
+
+		btScalar mass(1.f);
+
+		//rigidbody is dynamic if and only if mass is non zero, otherwise static
+		bool isDynamic = (mass != 0.f);
+
+		btVector3 localInertia(0, 0, 0);
+		if (isDynamic)
+			colShape->calculateLocalInertia(mass, localInertia);
+		// colShape->calculatePrincipalAxisTransform(&mass, startTransform, localInertia);
+
+		startTransform.setOrigin(btVector3(2, 200, 0));//2,100,0
+
+		//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+		btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
+		btRigidBody* body = new btRigidBody(rbInfo);
+
+		dynamicsWorld->addRigidBody(body);
 	}
-	
+	//HELMET//////////////////////////////////////////////////////////////////////////
 
 
-	// Model gun{"assets/pbr/colt-1911/1911.obj"};
-	
-	// std::string albedo_map_path1("assets/pbr/colt-1911/albedo_scaled.png");
-	// std::string normal_map_path1("assets/pbr/colt-1911/normal_scaled.png");
-	// std::string metallic_map_path1("assets/pbr/colt-1911/metallic_scaled.png");
-	// std::string roughness_map_path1("assets/pbr/colt-1911/roughness_scaled.png");
-	// std::string ao_map_path1("assets/pbr/colt-1911/ao_scaled.png");
-	
-	// Texture2D albedo_map1{};
-	// albedo_map1.load_from_file(albedo_map_path1, false);//, true
-	// albedo_map1.set_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
-	// albedo_map1.set_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// albedo_map1.set_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	// albedo_map1.set_parameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    /////////////
 
-	// Texture2D normal_map1{};
-	// normal_map1.load_from_file(normal_map_path1, false);
-	// normal_map1.set_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
-	// normal_map1.set_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// normal_map1.set_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	// normal_map1.set_parameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	// Texture2D metallic_map1{};
-	// metallic_map1.load_from_file(metallic_map_path1, false);
-	// metallic_map1.set_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
-	// metallic_map1.set_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// metallic_map1.set_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	// metallic_map1.set_parameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	// Texture2D roughness_map1{};
-	// roughness_map1.load_from_file(roughness_map_path1, false);
-	// roughness_map1.set_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
-	// roughness_map1.set_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// roughness_map1.set_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	// roughness_map1.set_parameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	// Texture2D ao_map1{};
-	// ao_map1.load_from_file(ao_map_path1, false);
-	// ao_map1.set_parameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
-	// ao_map1.set_parameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// ao_map1.set_parameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	// ao_map1.set_parameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	
-	
-	/*
-	std::string albedo_map_path("assets/pbr/rusted_iron/rustediron2_basecolor.png");
-	std::string normal_map_path("assets/pbr/rusted_iron/rustediron2_normal.png");
-	std::string metallic_map_path("assets/pbr/rusted_iron/rustediron2_metallic.png");
-	std::string roughness_map_path("assets/pbr/rusted_iron/rustediron2_roughness.png");
-	std::string ao_map_path("assets/pbr/rusted_iron/ao.png");
-	*/
-	 
-	
-	//
-	//*/
 
 	Shader lighting{"shaders/PBR/pbr_lighting.vs", "shaders/PBR/pbr_lighting.fs"};
 	lighting.use();
@@ -406,7 +493,7 @@ int main(){
 	
 ////////////////////////////////////////////////
 
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	
 	//time between frames
 	float delta_time = 0.0f; //time between current frame and last frame
@@ -516,10 +603,10 @@ int main(){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
 		
-		for(int i = 0; i < helmet_textures.size(); i++){
-			glActiveTexture(GL_TEXTURE0 + i);
-			helmet_textures[i].bind();
-		}
+		// for(int i = 0; i < helmet_textures.size(); i++){
+		// 	glActiveTexture(GL_TEXTURE0 + i);
+		// 	helmet_textures[i].bind();
+		// }
 /*
 		//objects
 		lighting.use();
@@ -542,21 +629,21 @@ int main(){
         }
         //
         */
-        sf::Time elapsed1 = clock.getElapsedTime();
+
         lighting.use();
 		lighting.set_vec3("camera_position", camera.get_position());
-		model = glm::mat4(1.0f);
-		model = glm::scale(model, glm::vec3(0.5f));
-		// if(rotation){
-		// 	model = glm::rotate(model, (float)elapsed1.asSeconds() * glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		// 	model_saved = model;
-			
-		// }else{
-		// 	model = model_saved;
-		// }
-//PHYSICS////////////
-dynamicsWorld->stepSimulation(1.f / 200.f, 10);//,60,
 
+		helmet.model = glm::mat4(1.0f);
+		cube.model = glm::mat4(1.0f);
+		sphere.model = glm::mat4(1.0f);
+		cube_test.model = glm::mat4(1.0f);
+		// cone.model = glm::mat4(1.0f);
+		
+		// model = glm::scale(model, glm::vec3(0.5f));
+        // helmet.model = glm::scale(helmet.model, glm::vec3(1.f));
+
+//PHYSICS////////////
+dynamicsWorld->stepSimulation(1.f / 60.f, 10);//,60,
 		//print positions of all objects
 		for (int j = dynamicsWorld->getNumCollisionObjects() - 1; j >= 0; j--)
 		{
@@ -571,50 +658,39 @@ dynamicsWorld->stepSimulation(1.f / 200.f, 10);//,60,
 			{
 				trans = obj->getWorldTransform();
 			}
-			printf("world pos object %d = %f,%f,%f\n", j, float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ()));
-			model = glm::translate(model, glm::vec3(float(trans.getOrigin().getX()), 
-										  float(trans.getOrigin().getY()), 
-										  float(trans.getOrigin().getZ())));
+			// printf("world pos object %d = %f,%f,%f\n", j, float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ()));
+			// helmet.model = glm::translate(helmet.model, glm::vec3(float(trans.getOrigin().getX()), 
+			// 							  float(trans.getOrigin().getY()), 
+			// 							  float(trans.getOrigin().getZ())));
+
+			if(j == 0){
+				cube.model = glm::translate(cube.model, glm::vec3(btv3_to_glmv3(trans.getOrigin())));
+			}
+			if(j == 1){
+				trans.getOpenGLMatrix(glm::value_ptr(sphere.model));
+			}
+			if(j == 2){
+				trans.getOpenGLMatrix(glm::value_ptr(cube_test.model));
+			}
+			if(j == 3){
+				trans.getOpenGLMatrix(glm::value_ptr(helmet.model));
+				trans.getOpenGLMatrix(glm::value_ptr(helmet_decomp.model));
+			}
 		}
 ///////////////////// 
-
-
-		lighting.set_mat4("model", model);
         helmet.draw(lighting);
+		
+        sphere.model = glm::scale(sphere.model, glm::vec3(5.f));
+        sphere.draw(lighting);
 
-		for(int i = 0; i < helmet_textures.size(); i++){
-			glActiveTexture(GL_TEXTURE0 + i);
-			helmet_textures[i].unbind();
-		}
+		//floor
+		cube.model = glm::scale(cube.model, glm::vec3(20.f, 1.f, 20.f));//50, 1, 50
+        //cube.model = glm::translate(cube.model, glm::vec3(btv3_to_glmv3(groundTransform.getOrigin())));
+        cube.draw(lighting);
 
+		cube_test.draw(lighting);
 
-		// model = glm::mat4(1.0f);
-		// model = glm::scale(model, glm::vec3(0.5f));
-		// model = glm::translate(model, glm::vec3(-20,20,0));
-		// lighting.set_mat4("model", model);
-		// cat.draw(lighting);
-
-
-		// model = glm::mat4(1.0f);
-		// model = glm::scale(model, glm::vec3(0.5f));
-		// model = glm::translate(model, glm::vec3(20,20,0));
-		// lighting.set_mat4("model", model);
-		// glActiveTexture(GL_TEXTURE0);
-		// albedo_map1.bind();
-		// glActiveTexture(GL_TEXTURE1);
-		// normal_map1.bind();
-		// glActiveTexture(GL_TEXTURE2);
-		// metallic_map1.bind();
-		// glActiveTexture(GL_TEXTURE3);
-		// roughness_map1.bind();
-		// glActiveTexture(GL_TEXTURE4);
-		// ao_map1.bind();
-        // gun.draw(lighting);
-        
-        
-
-		render_gui(window, gui_delta_clock, fps, frame_count, rotation, calc_perspective, light_colors);
-
+		     
 
         //spheres representing lights
         for (unsigned int i = 0; i < light_positions.size(); ++i)
@@ -634,10 +710,7 @@ dynamicsWorld->stepSimulation(1.f / 200.f, 10);//,60,
 
 		
 		
-		
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-		
+		render_gui(window, gui_delta_clock, fps, frame_count, rotation, calc_perspective, light_colors);
 		window.display();
 	}
 	

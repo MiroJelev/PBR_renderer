@@ -1,6 +1,6 @@
 #include "camera.h"
 
-Camera::Camera() : position(0.0f, 0.0f, 3.0f),
+Camera::Camera() : position(0.0f, 5.0f, 13.0f),//0,0,3
 				   front(0.0f, 0.0f, 0.0f),
 				   up(0.0f, 1.0f, 0.0f),
 				   fov(45.0f),

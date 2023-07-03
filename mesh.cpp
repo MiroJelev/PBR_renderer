@@ -51,36 +51,33 @@ void Mesh::setup_mesh(){
 
 
 void Mesh::draw(Shader &shader){
-	//unsigned int diffuseNr = 1;
-	//unsigned int specularNr = 1;
 	
-	/*unsigned int albedoNr = 1;
+	unsigned int albedoNr = 1;
 	unsigned int normalNr = 1;
 	unsigned int metallicNr = 1;
 	unsigned int roughnessNr = 1;
 	unsigned int aoNr = 1;
-	*/
+
 	for(unsigned int i = 0; i < textures.size(); i++){
 		glActiveTexture(GL_TEXTURE0 + i);
 		
 		std::string number;
 		std::string name = textures[i].type;
-		/*if(name == "texture_diffuse")
-			number = std::to_string(diffuseNr++);
-		else if(name == "texture_specular")
-			number = std::to_string(specularNr++);
-		*/
-		/*if(name == "albedo_map")
+	
+		if(name == "texture_albedo"){//albedo_map
 			number = std::to_string(albedoNr++);
-		else if(name == "normal_map")
+		}else if(name == "texture_normal"){//normal_map
+			// std::cout << "normal_map" << std::endl;
 			number = std::to_string(normalNr++);
-		else if(name == "metallic_map")
+		}else if(name == "texture_metallic"){//metallic_map
+			// std::cout << "metallic_map" << std::endl;
 			number = std::to_string(metallicNr++);
-		else if(name == "roughness_map")
+		}else if(name == "texture_roughness"){//roughness_map
+			// std::cout << "roughness_map" << std::endl;
 			number = std::to_string(roughnessNr++);
-		else if(name == "ao_map")
+		}else if(name == "texture_ao"){//ao_map
 			number = std::to_string(aoNr++);
-		*/
+		}
 		
 		//shader.set_float(( name + number).c_str(), i); "material." +
 		//glUniform1i(glGetUniformLocation(shader.ID, ("material." + name + number).c_str()), i);
